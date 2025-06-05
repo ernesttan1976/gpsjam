@@ -1,0 +1,29 @@
+{
+  "manifest_version": 3,
+  "name": "Aviation Data Scraper",
+  "version": "1.0",
+  "description": "Intercepts and scrapes spoofing and jamming data from aviation APIs",
+  "permissions": [
+    "storage",
+    "activeTab",
+    "scripting"
+  ],
+  "host_permissions": [
+    "https://spoofing.skai-data-services.com/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Aviation Data Scraper"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://spoofing.skai-data-services.com/*"],
+      "js": ["content.js"],
+      "run_at": "document_start",
+      "all_frames": true
+    }
+  ]
+}
