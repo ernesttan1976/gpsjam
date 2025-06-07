@@ -296,49 +296,49 @@ document.addEventListener("DOMContentLoaded", function () {
 <kml xmlns="http://www.opengis.net/kml/2.2">
   <Document>
     <name>${this.escapeXML(title)} - ${timestamp}</name>
-    <description>GPS Jamming data from SKAI scraper</description>
+    <description>GPS Jamming data from SKAI</description>
     
     <Style id="no-jamming">
       <PolyStyle>
-        <color>7f00ff00</color>
+        <color>07000000</color>
         <fill>1</fill>
         <outline>1</outline>
       </PolyStyle>
       <LineStyle>
-        <color>ff00ff00</color>
+        <color>1f000000</color>
         <width>2</width>
       </LineStyle>
     </Style>
     <Style id="low-jamming">
       <PolyStyle>
-        <color>7f00ffff</color>
+        <color>3f00ffff</color>
         <fill>1</fill>
         <outline>1</outline>
       </PolyStyle>
       <LineStyle>
-        <color>ff00ffff</color>
+        <color>7f00ffff</color>
         <width>2</width>
       </LineStyle>
     </Style>
     <Style id="moderate-jamming">
       <PolyStyle>
-        <color>7ff007fff</color>
+        <color>3f007fff</color>
         <fill>1</fill>
         <outline>1</outline>
       </PolyStyle>
       <LineStyle>
-        <color>ff007fff</color>
+        <color>7f007fff</color>
         <width>2</width>
       </LineStyle>
     </Style>
     <Style id="high-jamming">
       <PolyStyle>
-        <color>7f0000ff</color>
+        <color>3f0000ff</color>
         <fill>1</fill>
         <outline>1</outline>
       </PolyStyle>
       <LineStyle>
-        <color>ff0000ff</color>
+        <color>7f0000ff</color>
         <width>3</width>
       </LineStyle>
     </Style>
