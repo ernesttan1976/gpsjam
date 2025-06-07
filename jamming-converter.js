@@ -46,38 +46,76 @@ class JammingDataConverter {
     }
   }
   // Convert H3 index to KML coordinates - REAL H3 ONLY
+  // Convert H3 index to KML coordinates with variable vertex count handling
   h3ToPolygonCoordinates(h3Index) {
-    console.log("=== DEBUGGING COORDINATE PRECISION ===");
-    console.log("Input H3 index:", h3Index);
+    if (!this.h3) {
+      throw new Error(
+        "H3 library not initialized - cannot convert coordinates"
+      );
+    }
 
-    // Step 1: Check raw H3 boundary output
-    const boundary = this.h3.cellToBoundary(h3Index);
-    console.log("Raw H3 boundary (full precision):", boundary);
+    try {
+      console.log("Converting H3 index:", h3Index);
 
-    // Step 2: Check individual vertices
-    boundary.forEach((vertex, i) => {
-      console.log(`Vertex ${i}: [${vertex[0]}, ${vertex[1]}]`);
-      console.log(`  - Lat precision: ${vertex[0].toString().length} chars`);
-      console.log(`  - Lng precision: ${vertex[1].toString().length} chars`);
-    });
+      const boundary = this.h3.cellToBoundary(h3Index);
+      console.log("H3 boundary vertices:", boundary);
 
-    // Step 3: Check coordinate string conversion
-    const coordStrings = boundary.map(([lat, lng]) => {
-      const coordString = `${lng},${lat},0`;
-      console.log(`Converting [${lat}, ${lng}] -> "${coordString}"`);
-      return coordString;
-    });
+      if (!boundary || boundary.length < 3) {
+        throw new Error(
+          `Invalid boundary - expected at least 3 vertices, got: ${
+            boundary ? boundary.length : "null"
+          }`
+        );
+      }
 
-    // Step 4: Check join operation
-    const joined = coordStrings.join(" ");
-    console.log("Joined coordinates:", joined);
+      // Log the actual vertex count for debugging
+      console.log(
+        `H3 cell has ${boundary.length} vertices (expected: usually 6, but can vary)`
+      );
 
-    // Step 5: Check final result
-    const [firstLat, firstLng] = boundary[0];
-    const result = `${joined} ${firstLng},${firstLat},0`;
-    console.log("Final result:", result);
+      // Check for longitude wrap-around (crossing 180° meridian)
+      const longitudes = boundary.map(([lat, lng]) => lng);
+      const minLng = Math.min(...longitudes);
+      const maxLng = Math.max(...longitudes);
+      const lngSpan = maxLng - minLng;
 
-    return result;
+      // If longitude span > 180°, we're crossing the date line
+      const crossesDateLine = lngSpan > 180;
+
+      console.log(
+        `Longitude range: ${minLng} to ${maxLng}, span: ${lngSpan}°, crosses date line: ${crossesDateLine}`
+      );
+
+      let adjustedBoundary;
+      if (crossesDateLine) {
+        // Adjust negative longitudes by adding 360° to normalize them
+        adjustedBoundary = boundary.map(([lat, lng]) => {
+          const adjustedLng = lng < 0 ? lng + 360 : lng;
+          console.log(`Adjusting longitude: ${lng} -> ${adjustedLng}`);
+          return [lat, adjustedLng];
+        });
+      } else {
+        adjustedBoundary = boundary;
+      }
+
+      // Convert to KML format: lng,lat,alt with SPACES between coordinate triplets
+      const coordinates = adjustedBoundary
+        .map(([lat, lng]) => `${lng},${lat},0.0`)
+        .join(" ");
+
+      // Close the polygon by adding the first vertex at the end
+      const [firstLat, firstLng] = adjustedBoundary[0];
+      const result = `${coordinates} ${firstLng},${firstLat},0.0`;
+
+      console.log(
+        `Final KML coordinates (${boundary.length} vertices):`,
+        result
+      );
+      return result;
+    } catch (error) {
+      console.error("Error converting H3 index:", h3Index, error);
+      throw error;
+    }
   }
 
   // Calculate total jamming intensity
@@ -88,7 +126,7 @@ class JammingDataConverter {
     return total;
   }
 
-  // Generate KML content with proper structure
+  // Generate KML content with proper structure and polygon type info
   generateKML(jammingData, title = "GPS Jamming Data") {
     const timestamp = new Date().toISOString().split("T")[0];
 
@@ -96,7 +134,7 @@ class JammingDataConverter {
 <kml xmlns="http://www.opengis.net/kml/2.2">
 <Document>
   <name>${title} - ${timestamp}</name>
-  <description>GPS Jamming hexagons from H3 indices</description>
+  <description>GPS Jamming polygons from H3 indices (variable vertex count)</description>
   
   <Style id="low-jamming">
     <PolyStyle>
@@ -147,6 +185,8 @@ class JammingDataConverter {
   </Style>`;
 
     let processedCount = 0;
+    let polygonStats = {}; // Track polygon vertex counts
+
     jammingData.forEach((data, index) => {
       const intensity = this.calculateJammingIntensity(data);
 
@@ -155,23 +195,31 @@ class JammingDataConverter {
         return;
       }
 
-      const coordinates = this.h3ToPolygonCoordinates(data.h3_index);
-      if (!coordinates) {
-        throw new Error(`Failed to get coordinates for ${data.h3_index}`);
-      }
+      try {
+        // Get vertex count for statistics
+        const boundary = this.h3.cellToBoundary(data.h3_index);
+        const vertexCount = boundary.length;
+        polygonStats[vertexCount] = (polygonStats[vertexCount] || 0) + 1;
 
-      let styleId;
-      if (intensity <= 5) styleId = "low-jamming";
-      else if (intensity <= 20) styleId = "moderate-jamming";
-      else if (intensity <= 50) styleId = "high-jamming";
-      else styleId = "very-high-jamming";
+        const coordinates = this.h3ToPolygonCoordinates(data.h3_index);
+        if (!coordinates) {
+          throw new Error(`Failed to get coordinates for ${data.h3_index}`);
+        }
 
-      const placemarkId = 100 + processedCount;
-      const polygonId = 200 + processedCount;
-      const ringId = 300 + processedCount;
+        let styleId;
+        if (intensity <= 5) styleId = "low-jamming";
+        else if (intensity <= 20) styleId = "moderate-jamming";
+        else if (intensity <= 50) styleId = "high-jamming";
+        else styleId = "very-high-jamming";
 
-      kmlContent += `
+        const placemarkId = 100 + processedCount;
+        const polygonId = 200 + processedCount;
+        const ringId = 300 + processedCount;
+
+        kmlContent += `
         <Placemark id="${placemarkId}">
+            <name>H3: ${data.h3_index}</name>
+            <description>Jamming Intensity: ${intensity}, Vertices: ${vertexCount}</description>
             <styleUrl>#${styleId}</styleUrl>
             <Polygon id="${polygonId}">
                 <outerBoundaryIs>
@@ -182,14 +230,19 @@ class JammingDataConverter {
             </Polygon>
         </Placemark>`;
 
-      processedCount++;
+        processedCount++;
+      } catch (error) {
+        console.error(`Error processing H3 index ${data.h3_index}:`, error);
+        // Continue processing other indices
+      }
     });
 
     kmlContent += `
 </Document>
 </kml>`;
 
-    console.log(`Generated KML with ${processedCount} hexagonal placemarks`);
+    console.log(`Generated KML with ${processedCount} polygonal placemarks`);
+    console.log("Polygon vertex count statistics:", polygonStats);
     return kmlContent;
   }
 
