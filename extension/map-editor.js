@@ -4,7 +4,7 @@ class GPSJammingMapEditor {
     this.map = null;
     this.hexagons = new Map();
     this.selectedColor = "transparent";
-    this.h3Resolution = 8;
+    this.h3Resolution = 3; // Changed from 8 to 3 for larger hexagons starting with 83
 
     this.colors = {
       transparent: {
@@ -141,6 +141,14 @@ class GPSJammingMapEditor {
       if (resetBtn) {
         resetBtn.addEventListener("click", () => {
           this.resetMap();
+        });
+      }
+
+      const resolutionSelect = document.getElementById("resolutionSelect");
+      if (resolutionSelect) {
+        resolutionSelect.addEventListener("change", (e) => {
+          this.h3Resolution = parseInt(e.target.value);
+          this.updateMapStatus(`H3 Resolution set to: ${this.h3Resolution}`);
         });
       }
 
