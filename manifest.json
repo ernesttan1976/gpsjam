@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "Aviation Data Scraper",
+  "name": "GPS Jamming Layer",
   "version": "1.0",
-  "description": "Intercepts and scrapes spoofing and jamming data from aviation APIs",
+  "description": "Generates KMZ layer",
   "permissions": ["storage", "activeTab", "scripting"],
   "host_permissions": ["https://spoofing.skai-data-services.com/*"],
   "background": {
@@ -10,7 +10,7 @@
   },
   "action": {
     "default_popup": "popup.html",
-    "default_title": "Aviation Data Scraper"
+    "default_title": "GPS Jamming Layer"
   },
   "content_scripts": [
     {
