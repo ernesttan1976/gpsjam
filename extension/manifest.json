@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "GPS Jamming Layer",
+  "name": "GPS Jam Layer",
   "version": "1.0",
   "description": "Generates KMZ layer",
   "permissions": ["storage", "activeTab", "scripting"],
