@@ -284,9 +284,16 @@ document.addEventListener("DOMContentLoaded", function () {
       count.average = data["n_nic5"] + data["n_nic6"] + data["n_nic7"];
       count.good =
         data["n_nic8"] + data["n_nic9"] + data["n_nic10"] + data["n_nic11"];
-      return count.bad + count.good > 0
-        ? parseInt((count.bad / (count.bad + count.good)) * 100)
-        : 0;
+      const intensity =
+        count.bad + count.good > 0
+          ? parseInt((count.bad / (count.bad + count.good)) * 100)
+          : 0;
+      return {
+        intensity,
+        count_good: count.good,
+        count_average: count.average,
+        count_bad: count.bad,
+      };
     }
 
     generateKML(jammingData, title = "GPS Jamming Data") {
@@ -346,7 +353,8 @@ document.addEventListener("DOMContentLoaded", function () {
 
       let processedCount = 0;
       jammingData.forEach((data, index) => {
-        const intensity = this.calculateJammingIntensity(data);
+        const { intensity, count_good, count_average, count_bad } =
+          this.calculateJammingIntensity(data);
 
         try {
           const coordinates = this.h3Converter.h3ToPolygonCoordinates(
@@ -359,10 +367,7 @@ document.addEventListener("DOMContentLoaded", function () {
           else if (intensity <= 50) styleId = "moderate-jamming"; //orange
           else styleId = "high-jamming"; // red
 
-          const nicDetails = Object.keys(data)
-            .filter((key) => key.startsWith("n_nic"))
-            .map((key) => `${key}: ${data[key]}`)
-            .join(", ");
+          const nicDetails = `n_nic1:${data["n_nic1"]},n_nic2:${data["n_nic2"]},n_nic3:${data["n_nic3"]},n_nic4:${data["n_nic4"]},n_nic5:${data["n_nic5"]},n_nic6:${data["n_nic6"]},n_nic7:${data["n_nic7"]},n_nic8:${data["n_nic8"]},n_nic9:${data["n_nic9"]},n_nic10:${data["n_nic10"]},n_nic11:${data["n_nic11"]}`;
 
           kml += `
         <Placemark>
@@ -371,9 +376,16 @@ document.addEventListener("DOMContentLoaded", function () {
             <b>GPS Jamming Detection</b><br/>
             <b>H3 Index:</b> ${this.escapeXML(data.h3_index)}<br/>
             <b>Timestamp:</b> ${this.escapeXML(data.timestamp)}<br/>
-            <b>Total Intensity:</b> ${intensity}<br/>
+            <b>Risk Classification:</b> ${this.escapeXML(
+              styleId.toUpperCase()
+            )}<br/>
+            <b>Total Intensity (% BAD vs GOOD):</b> ${intensity}<br/>
+            <b>Bad Count:</b> ${this.escapeXML(
+              count_bad
+            )} <b>Average Count:</b> ${this.escapeXML(
+            count_average
+          )} <b>Good Count:</b> ${this.escapeXML(count_good)} <br/>
             <b>NIC Levels:</b> ${this.escapeXML(nicDetails)}<br/>
-            <i>Note: Coordinates are approximate</i>
           ]]></description>
           <styleUrl>#${styleId}</styleUrl>
           <Polygon>
