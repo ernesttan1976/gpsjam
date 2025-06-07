@@ -556,4 +556,58 @@ document.addEventListener("DOMContentLoaded", function () {
       });
     }
   });
+
+  // Add map-specific functionality
+  function loadJammingDataToMap() {
+    if (jammingData && window.mapEditor) {
+      // Load existing jamming data into the map
+      jammingData.forEach((data) => {
+        try {
+          const color = getColorFromIntensity(data);
+          window.mapEditor.createHexagon(data.h3_index, color);
+        } catch (error) {
+          console.error("Error loading data to map:", error);
+        }
+      });
+    }
+  }
+
+  function getColorFromIntensity(data) {
+    const { intensity } = calculateJammingIntensity(data);
+    if (intensity <= 5) return "transparent";
+    else if (intensity <= 20) return "yellow";
+    else if (intensity <= 50) return "orange";
+    else return "red";
+  }
+
+  function calculateJammingIntensity(data) {
+    const count = {};
+    count.bad =
+      data["n_nic0"] +
+      data["n_nic1"] +
+      data["n_nic2"] +
+      data["n_nic3"] +
+      data["n_nic4"];
+    count.average = data["n_nic5"] + data["n_nic6"] + data["n_nic7"];
+    count.good =
+      data["n_nic8"] + data["n_nic9"] + data["n_nic10"] + data["n_nic11"];
+    const intensity =
+      count.bad + count.good > 0
+        ? parseInt((count.bad / (count.bad + count.good)) * 100)
+        : 0;
+    return {
+      intensity,
+      count_good: count.good,
+      count_average: count.average,
+      count_bad: count.bad,
+    };
+  }
+
+  // Load jamming data to map when available
+  const originalUpdateUI = updateUI;
+  updateUI = function () {
+    originalUpdateUI();
+    // Load data to map after UI update
+    setTimeout(loadJammingDataToMap, 100);
+  };
 });

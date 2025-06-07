@@ -2,35 +2,68 @@
 <html>
 <head>
   <meta charset="utf-8">
+  <link rel="stylesheet" href="leaflet.css" />
   <style>
     body {
-      width: 400px;
-      padding: 20px;
+      width: 800px;
+      height: 600px;
+      padding: 0;
+      margin: 0;
       font-family: Arial, sans-serif;
+      display: flex;
+      flex-direction: column;
     }
     .header {
       text-align: center;
-      margin-bottom: 20px;
+      padding: 10px;
+      background-color: #f5f5f5;
+      border-bottom: 1px solid #ddd;
+    }
+    .main-container {
+      display: flex;
+      flex: 1;
+      height: 500px;
+    }
+    .sidebar {
+      width: 350px;
+      padding: 15px;
+      background-color: #fafafa;
+      border-right: 1px solid #ddd;
+      overflow-y: auto;
+    }
+    .map-container {
+      flex: 1;
+      position: relative;
+      background-color: #e0e0e0;
+    }
+    #map {
+      width: 100%;
+      height: 100%;
+      background-color: #cccccc;
     }
     .data-section {
-      margin-bottom: 20px;
-      padding: 15px;
+      margin-bottom: 15px;
+      padding: 10px;
       border: 1px solid #ddd;
       border-radius: 5px;
+      background-color: white;
     }
     .data-section h3 {
       margin-top: 0;
+      margin-bottom: 10px;
       color: #333;
+      font-size: 14px;
     }
     .download-btn {
       background-color: #4CAF50;
       color: white;
-      padding: 10px 20px;
+      padding: 8px 12px;
       border: none;
       border-radius: 4px;
       cursor: pointer;
-      margin-right: 10px;
-      margin-bottom: 10px;
+      margin-right: 5px;
+      margin-bottom: 5px;
+      font-size: 12px;
     }
     .download-btn:hover {
       background-color: #45a049;
@@ -45,17 +78,29 @@
     .kmz-btn:hover {
       background-color: #1976D2;
     }
+    .map-btn {
+      background-color: #FF9800;
+    }
+    .map-btn:hover {
+      background-color: #F57C00;
+    }
+    .reset-btn {
+      background-color: #f44336;
+    }
+    .reset-btn:hover {
+      background-color: #d32f2f;
+    }
     .status {
-      font-size: 12px;
+      font-size: 11px;
       color: #666;
       margin-top: 5px;
     }
     .data-preview {
       background-color: #f5f5f5;
-      padding: 10px;
+      padding: 8px;
       border-radius: 3px;
-      font-size: 12px;
-      max-height: 100px;
+      font-size: 11px;
+      max-height: 80px;
       overflow-y: auto;
       white-space: pre-wrap;
     }
@@ -63,40 +108,105 @@
       color: #4CAF50;
       font-weight: bold;
     }
+    .map-controls {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      z-index: 1000;
+      background: white;
+      padding: 10px;
+      border-radius: 5px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    }
+    .color-selector {
+      display: flex;
+      gap: 5px;
+      margin-bottom: 10px;
+    }
+    .color-option {
+      width: 30px;
+      height: 30px;
+      border: 2px solid #333;
+      border-radius: 3px;
+      cursor: pointer;
+    }
+    .color-option.active {
+      border-color: #000;
+      border-width: 3px;
+    }
+    .file-input {
+      margin: 5px 0;
+    }
+    .debug-info {
+      background-color: #fffacd;
+      padding: 5px;
+      margin: 5px 0;
+      border-radius: 3px;
+      font-size: 10px;
+    }
   </style>
-    <script src="./jszip.min.js"></script>
-    <script src="./h3-js.umd.js"></script>
-    <script src="./jamming-converter.js"></script>
 </head>
 <body>
   <div class="header">
-    <h2>GPS Jam Layer</h2>
+    <h2>GPS Jam Layer Editor</h2>
   </div>
   
-  <div class="data-section">
-    <h3>Jamming Data</h3>
-    <button id="downloadJamming" class="download-btn">Download JSON</button>
-    <button id="downloadJammingKMZ" class="download-btn kmz-btn">Download KMZ</button>
-    <div id="jammingStatus" class="status">No data captured yet</div>
-    <div id="jammingPreview" class="data-preview"></div>
+  <div class="main-container">
+    <div class="sidebar">
+      <div class="data-section">
+        <h3>Map Controls</h3>
+        <div id="debugInfo" class="debug-info">Loading...</div>
+        <input type="file" id="kmzFileInput" accept=".kmz,.kml" class="file-input">
+        <button id="loadKmzBtn" class="download-btn map-btn">Load KMZ/KML</button>
+        <button id="saveEditedKmzBtn" class="download-btn kmz-btn">Save Edited KMZ</button>
+        <button id="resetMapBtn" class="download-btn reset-btn">Reset Map</button>
+        <div id="mapStatus" class="status">Loading map...</div>
+      </div>
+
+      <div class="data-section">
+        <h3>Jamming Data</h3>
+        <button id="downloadJamming" class="download-btn">Download JSON</button>
+        <button id="downloadJammingKMZ" class="download-btn kmz-btn">Download KMZ</button>
+        <div id="jammingStatus" class="status">No data captured yet</div>
+        <div id="jammingPreview" class="data-preview"></div>
+      </div>
+
+      <div class="data-section">
+        <h3>Spoofing Data</h3>
+        <button id="downloadSpoofing" class="download-btn">Download Spoofing Data</button>
+        <div id="spoofingStatus" class="status">No data captured yet</div>
+        <div id="spoofingPreview" class="data-preview"></div>
+      </div>
+      
+      <div class="data-section">
+        <h3>Combined Data</h3>
+        <button id="downloadAll" class="download-btn">Download All Data</button>
+        <button id="clearData" class="download-btn reset-btn">Clear All Data</button>
+      </div>
+
+      <div id="converterStatus" class="status ready">✓ KMZ Converter Ready</div>
+    </div>
+
+    <div class="map-container">
+      <div id="map"></div>
+      <div class="map-controls">
+        <div>Select Jamming Level:</div>
+        <div class="color-selector">
+          <div class="color-option active" data-color="transparent" style="background: rgba(0,0,0,0.1); border-style: dashed;" title="No Jamming"></div>
+          <div class="color-option" data-color="yellow" style="background: #ffff00;" title="Low Jamming"></div>
+          <div class="color-option" data-color="orange" style="background: #ff8000;" title="Moderate Jamming"></div>
+          <div class="color-option" data-color="red" style="background: #ff0000;" title="High Jamming"></div>
+        </div>
+        <div style="font-size: 11px;">Click map to add/edit hexagons</div>
+      </div>
+    </div>
   </div>
 
-    <div class="data-section">
-    <h3>Spoofing Data</h3>
-    <button id="downloadSpoofing" class="download-btn">Download Spoofing Data</button>
-    <div id="spoofingStatus" class="status">No data captured yet</div>
-    <div id="spoofingPreview" class="data-preview"></div>
-  </div>
-  
-  <div class="data-section">
-    <h3>Combined Data</h3>
-    <button id="downloadAll" class="download-btn">Download All Data</button>
-    <button id="clearData" class="download-btn" style="background-color: #f44336;">Clear All Data</button>
-  </div>
-
-  <div id="converterStatus" class="status ready">✓ KMZ Converter Ready</div>
-
+  <script src="leaflet.js"></script>
+  <script src="jszip.min.js"></script>
+  <script src="h3-js.umd.js"></script>
+  <script src="jamming-converter.js"></script>
+  <script src="map-editor.js"></script>
   <script src="popup.js"></script>
-
 </body>
 </html>

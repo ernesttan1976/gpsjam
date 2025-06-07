@@ -16,10 +16,12 @@
     {
       "matches": ["https://spoofing.skai-data-services.com/*"],
       "js": [
+        "leaflet.js",
         "h3-js.umd.js",
         "jszip.min.js",
         "content.js",
-        "jamming-converter.js"
+        "jamming-converter.js",
+        "map-editor.js"
       ],
       "run_at": "document_start",
       "all_frames": true
@@ -27,7 +29,15 @@
   ],
   "web_accessible_resources": [
     {
-      "resources": ["popup.js"],
+      "resources": [
+        "popup.js",
+        "map-editor.js",
+        "leaflet.js",
+        "leaflet.css",
+        "jszip.min.js",
+        "h3-js.umd.js",
+        "jamming-converter.js"
+      ],
       "matches": ["<all_urls>"]
     }
   ]
