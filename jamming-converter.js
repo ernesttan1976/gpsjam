@@ -45,7 +45,6 @@ class JammingDataConverter {
       throw new Error("H3 library is not working properly");
     }
   }
-  // Convert H3 index to KML coordinates - REAL H3 ONLY
   // Convert H3 index to KML coordinates with variable vertex count handling
   h3ToPolygonCoordinates(h3Index) {
     if (!this.h3) {
@@ -113,7 +112,7 @@ class JammingDataConverter {
       );
       return result;
     } catch (error) {
-      console.error("Error converting H3 index:", h3Index, error);
+      console.error("Error converting H3 index:", h3Index, error.stack);
       throw error;
     }
   }
@@ -244,69 +243,6 @@ class JammingDataConverter {
     console.log(`Generated KML with ${processedCount} polygonal placemarks`);
     console.log("Polygon vertex count statistics:", polygonStats);
     return kmlContent;
-  }
-
-  // Fixed coordinate conversion - NO SPACES between coordinate triplets
-  // Convert H3 index to KML coordinates with longitude wrap-around handling
-  h3ToPolygonCoordinates(h3Index) {
-    if (!this.h3) {
-      throw new Error(
-        "H3 library not initialized - cannot convert coordinates"
-      );
-    }
-
-    try {
-      console.log("Converting H3 index:", h3Index);
-
-      const boundary = this.h3.cellToBoundary(h3Index);
-      console.log("H3 boundary vertices:", boundary);
-
-      if (!boundary || boundary.length !== 6) {
-        throw new Error(
-          `Invalid boundary - expected 6 vertices, got: ${boundary}`
-        );
-      }
-
-      // Check for longitude wrap-around (crossing 180° meridian)
-      const longitudes = boundary.map(([lat, lng]) => lng);
-      const minLng = Math.min(...longitudes);
-      const maxLng = Math.max(...longitudes);
-      const lngSpan = maxLng - minLng;
-
-      // If longitude span > 180°, we're crossing the date line
-      const crossesDateLine = lngSpan > 180;
-
-      console.log(
-        `Longitude range: ${minLng} to ${maxLng}, span: ${lngSpan}°, crosses date line: ${crossesDateLine}`
-      );
-
-      let adjustedBoundary;
-      if (crossesDateLine) {
-        // Adjust negative longitudes by adding 360° to normalize them
-        adjustedBoundary = boundary.map(([lat, lng]) => {
-          const adjustedLng = lng < 0 ? lng + 360 : lng;
-          console.log(`Adjusting longitude: ${lng} -> ${adjustedLng}`);
-          return [lat, adjustedLng];
-        });
-      } else {
-        adjustedBoundary = boundary;
-      }
-
-      // Convert to KML format: lng,lat,alt with SPACES between coordinate triplets
-      const coordinates = adjustedBoundary
-        .map(([lat, lng]) => `${lng},${lat},0.0`)
-        .join(" ");
-
-      // Close the polygon
-      const [firstLat, firstLng] = adjustedBoundary[0];
-      const result = `${coordinates} ${firstLng},${firstLat},0.0`;
-
-      console.log("Final KML coordinates:", result);
-      return result;
-    } catch (error) {
-      console.error("Error converting H3 index:", h3Index, error);
-      throw error;
-    }
   }
 
   // Create KMZ file
