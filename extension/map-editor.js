@@ -215,7 +215,48 @@ class GPSJammingMapEditor {
     }
   }
 
-  createHexagon(h3Index, color) {
+  extractPlacemarkAttributes(placemark) {
+    const attributes = {};
+
+    // Extract all attributes from the placemark
+    if (placemark.id) attributes.id = placemark.id;
+
+    // Extract polygon and ring IDs if they exist
+    const polygon = placemark.querySelector("Polygon");
+    if (polygon && polygon.id) attributes.polygonId = polygon.id;
+
+    const ring = placemark.querySelector("LinearRing");
+    if (ring && ring.id) attributes.ringId = ring.id;
+
+    // Extract any extended data
+    const extendedData = placemark.querySelector("ExtendedData");
+    if (extendedData) {
+      attributes.extendedData = new XMLSerializer().serializeToString(
+        extendedData
+      );
+    }
+
+    // Extract any other custom elements
+    for (const child of placemark.children) {
+      if (
+        ![
+          "name",
+          "description",
+          "styleUrl",
+          "Polygon",
+          "Point",
+          "LineString",
+        ].includes(child.tagName)
+      ) {
+        attributes[child.tagName] =
+          child.textContent || new XMLSerializer().serializeToString(child);
+      }
+    }
+
+    return attributes;
+  }
+
+  createHexagon(h3Index, color, originalData = {}) {
     try {
       // Get hexagon boundary
       const boundary = this.h3.cellToBoundary(h3Index);
@@ -232,11 +273,12 @@ class GPSJammingMapEditor {
       // Add to map
       polygon.addTo(this.map);
 
-      // Store hexagon data
+      // Store hexagon data with original KML information
       this.hexagons.set(h3Index, {
         polygon: polygon,
         color: color,
         h3Index: h3Index,
+        originalData: originalData, // Preserve all original KML data
       });
 
       // Add click handler to the polygon
@@ -401,7 +443,35 @@ class GPSJammingMapEditor {
 
           // Create hexagon if not transparent
           if (color !== "transparent") {
-            this.createHexagon(h3Index, color);
+            // Extract additional data from KML
+            const name = placemark.querySelector("name")?.textContent || "";
+            const coordinates =
+              placemark.querySelector("coordinates")?.textContent || "";
+            const styleUrl =
+              placemark.querySelector("styleUrl")?.textContent || "";
+
+            // Parse jamming intensity from description if available
+            const intensityMatch = description.match(
+              /Jamming Intensity:\s*(\d+)/i
+            );
+            const intensity = intensityMatch
+              ? parseInt(intensityMatch[1])
+              : this.getIntensityFromColor(color);
+
+            // Parse vertex count if available
+            const vertexMatch = description.match(/Vertices:\s*(\d+)/i);
+            const vertexCount = vertexMatch ? parseInt(vertexMatch[1]) : null;
+
+            this.createHexagon(h3Index, color, {
+              originalName: name,
+              originalDescription: description,
+              originalCoordinates: coordinates,
+              originalStyleUrl: styleUrl,
+              originalIntensity: intensity,
+              originalVertexCount: vertexCount,
+              // Store any additional placemark attributes
+              originalAttributes: this.extractPlacemarkAttributes(placemark),
+            });
           }
 
           if (h3Index && color !== "transparent") {
@@ -445,46 +515,45 @@ class GPSJammingMapEditor {
     try {
       this.updateMapStatus("Generating KMZ...");
 
-      // Convert hexagons to jamming data format
-      const jammingData = [];
-
-      this.hexagons.forEach((hexagon, h3Index) => {
-        if (hexagon.color === "transparent") return;
-
-        const intensity = this.getIntensityFromColor(hexagon.color);
-        jammingData.push({
-          h3_index: h3Index,
-          timestamp: new Date().toISOString(),
-          n_nic0: 0,
-          n_nic1: 0,
-          n_nic2: 0,
-          n_nic3: intensity,
-          n_nic4: 0,
-          n_nic5: 0,
-          n_nic6: 0,
-          n_nic7: 0,
-          n_nic8: 0,
-          n_nic9: 0,
-          n_nic10: 0,
-          n_nic11: 0,
-        });
-      });
-
-      if (jammingData.length === 0) {
+      if (this.hexagons.size === 0) {
         this.updateMapStatus("No hexagons to save");
         return;
       }
 
-      // Use existing converter to create KMZ
-      if (typeof KMZConverter !== "undefined") {
-        const converter = new KMZConverter();
+      // Use the jamming converter with original data preservation
+      if (typeof JammingDataConverter !== "undefined") {
+        const converter = new JammingDataConverter();
         const timestamp = new Date().toISOString().split("T")[0];
         const filename = `edited_jamming_${timestamp}.kmz`;
 
-        converter.convertAndDownload(jammingData, filename);
-        this.updateMapStatus(`Saved ${jammingData.length} hexagons to KMZ`);
+        // Generate KML with preserved original data
+        const kmlContent = converter.generateKMLFromHexagons(
+          this.hexagons,
+          "Edited GPS Jamming Data"
+        );
+
+        // Create KMZ
+        const zip = new JSZip();
+        zip.file("doc.kml", kmlContent);
+
+        zip.generateAsync({ type: "blob" }).then((kmzBlob) => {
+          // Download the file
+          const url = URL.createObjectURL(kmzBlob);
+          const link = document.createElement("a");
+          link.href = url;
+          link.download = filename;
+          link.style.display = "none";
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          URL.revokeObjectURL(url);
+
+          this.updateMapStatus(
+            `Saved ${this.hexagons.size} hexagons to KMZ with original data preserved`
+          );
+        });
       } else {
-        this.debugLog("KMZConverter not available");
+        this.debugLog("JammingDataConverter not available");
       }
     } catch (error) {
       this.debugLog("Error saving KMZ: " + error.message);
@@ -511,6 +580,9 @@ class GPSJammingMapEditor {
     });
     this.hexagons.clear();
     this.updateMapStatus("Map reset");
+    if (fileInput) {
+      this.loadKMZFile(e.target.files[0]);
+    }
   }
 
   updateMapStatus(message) {

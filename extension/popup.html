@@ -12,6 +12,7 @@
       font-family: Arial, sans-serif;
       display: flex;
       flex-direction: column;
+      overflow: none;
     }
     .header {
       text-align: center;
@@ -25,7 +26,7 @@
       height: 500px;
     }
     .sidebar {
-      width: 350px;
+      width: 200px;
       padding: 15px;
       background-color: #fafafa;
       border-right: 1px solid #ddd;
@@ -64,6 +65,7 @@
       margin-right: 5px;
       margin-bottom: 5px;
       font-size: 12px;
+      width: 100%;
     }
     .download-btn:hover {
       background-color: #45a049;
@@ -144,6 +146,9 @@
       border-radius: 3px;
       font-size: 10px;
     }
+    .nodisplay {
+      display: none;
+    }
   </style>
 </head>
 <body>
@@ -154,31 +159,33 @@
   <div class="main-container">
     <div class="sidebar">
       <div class="data-section">
-        <h3>Map Controls</h3>
-        <div id="debugInfo" class="debug-info">Loading...</div>
-        <input type="file" id="kmzFileInput" accept=".kmz,.kml" class="file-input">
-        <button id="loadKmzBtn" class="download-btn map-btn">Load KMZ/KML</button>
-        <button id="saveEditedKmzBtn" class="download-btn kmz-btn">Save Edited KMZ</button>
-        <button id="resetMapBtn" class="download-btn reset-btn">Reset Map</button>
-        <div id="mapStatus" class="status">Loading map...</div>
-      </div>
-
-      <div class="data-section">
         <h3>Jamming Data</h3>
-        <button id="downloadJamming" class="download-btn">Download JSON</button>
+        <button id="downloadJamming" class="download-btn nodisplay">Download JSON</button>
         <button id="downloadJammingKMZ" class="download-btn kmz-btn">Download KMZ</button>
         <div id="jammingStatus" class="status">No data captured yet</div>
         <div id="jammingPreview" class="data-preview"></div>
       </div>
 
       <div class="data-section">
+        <h3>Map Controls</h3>
+        <div id="debugInfo" class="debug-info">Loading...</div>
+        <input type="file" id="kmzFileInput" accept=".kmz,.kml" class="file-input">
+        <button id="loadKmzBtn" class="download-btn map-btn">Load KMZ</button>
+        <button id="saveEditedKmzBtn" class="download-btn kmz-btn">Save Edited KMZ</button>
+        <button id="resetMapBtn" class="download-btn reset-btn">Reset Map</button>
+        <div id="mapStatus" class="status">Loading map...</div>
+      </div>
+
+
+
+      <div class="data-section nodisplay">
         <h3>Spoofing Data</h3>
         <button id="downloadSpoofing" class="download-btn">Download Spoofing Data</button>
         <div id="spoofingStatus" class="status">No data captured yet</div>
         <div id="spoofingPreview" class="data-preview"></div>
       </div>
       
-      <div class="data-section">
+      <div class="data-section nodisplay">
         <h3>Combined Data</h3>
         <button id="downloadAll" class="download-btn">Download All Data</button>
         <button id="clearData" class="download-btn reset-btn">Clear All Data</button>

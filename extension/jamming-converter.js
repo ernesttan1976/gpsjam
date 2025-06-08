@@ -6,6 +6,19 @@ class JammingDataConverter {
     this.initH3();
   }
 
+  // Add this to JammingDataConverter class
+  getIntensityFromColor(color) {
+    switch (color) {
+      case "yellow":
+        return 10;
+      case "orange":
+        return 30;
+      case "red":
+        return 60;
+      default:
+        return 0;
+    }
+  }
   checkRequiredLibraries() {
     if (typeof JSZip === "undefined") {
       console.error("JSZip library NOT FOUND!");
@@ -126,14 +139,14 @@ class JammingDataConverter {
   }
 
   // Generate KML content with proper structure and polygon type info
-  generateKML(jammingData, title = "GPS Jamming Data") {
+  generateKMLFromHexagons(hexagonsMap, title = "GPS Jamming Data") {
     const timestamp = new Date().toISOString().split("T")[0];
 
     let kmlContent = `<?xml version="1.0" encoding="UTF-8"?>
 <kml xmlns="http://www.opengis.net/kml/2.2">
 <Document>
   <name>${title} - ${timestamp}</name>
-  <description>GPS Jamming polygons from H3 indices (variable vertex count)</description>
+  <description>GPS Jamming polygons from H3 indices (edited)</description>
   
   <Style id="low-jamming">
     <PolyStyle>
@@ -167,7 +180,7 @@ class JammingDataConverter {
     </PolyStyle>
     <LineStyle>
       <color>ff0080ff</color>
-      <width>2</width>
+      <width>3</width>
     </LineStyle>
   </Style>
   
@@ -184,25 +197,21 @@ class JammingDataConverter {
   </Style>`;
 
     let processedCount = 0;
-    let polygonStats = {}; // Track polygon vertex counts
 
-    jammingData.forEach((data, index) => {
-      const intensity = this.calculateJammingIntensity(data);
-
-      if (intensity === 0) {
-        console.log("Skipping zero intensity for", data.h3_index);
-        return;
-      }
-
+    hexagonsMap.forEach((hexagonData, h3Index) => {
       try {
-        // Get vertex count for statistics
-        const boundary = this.h3.cellToBoundary(data.h3_index);
-        const vertexCount = boundary.length;
-        polygonStats[vertexCount] = (polygonStats[vertexCount] || 0) + 1;
+        const originalData = hexagonData.originalData || {};
+        const intensity =
+          originalData.originalIntensity ||
+          this.getIntensityFromColor(hexagonData.color);
 
-        const coordinates = this.h3ToPolygonCoordinates(data.h3_index);
+        if (intensity === 0 && hexagonData.color === "transparent") {
+          return; // Skip transparent hexagons
+        }
+
+        const coordinates = this.h3ToPolygonCoordinates(h3Index);
         if (!coordinates) {
-          throw new Error(`Failed to get coordinates for ${data.h3_index}`);
+          throw new Error(`Failed to get coordinates for ${h3Index}`);
         }
 
         let styleId;
@@ -211,14 +220,26 @@ class JammingDataConverter {
         else if (intensity <= 50) styleId = "high-jamming";
         else styleId = "very-high-jamming";
 
-        const placemarkId = 100 + processedCount;
-        const polygonId = 200 + processedCount;
-        const ringId = 300 + processedCount;
+        // Use original IDs if available, otherwise generate new ones
+        const placemarkId =
+          originalData.originalAttributes?.id || 100 + processedCount;
+        const polygonId =
+          originalData.originalAttributes?.polygonId || 200 + processedCount;
+        const ringId =
+          originalData.originalAttributes?.ringId || 300 + processedCount;
+
+        // Use original name and description if available
+        const name = originalData.originalName || `H3: ${h3Index}`;
+        const description =
+          originalData.originalDescription ||
+          `Jamming Intensity: ${intensity}, Vertices: ${
+            this.h3.cellToBoundary(h3Index).length
+          }`;
 
         kmlContent += `
         <Placemark id="${placemarkId}">
-            <name>H3: ${data.h3_index}</name>
-            <description>Jamming Intensity: ${intensity}, Vertices: ${vertexCount}</description>
+            <name>${name}</name>
+            <description>${description}</description>
             <styleUrl>#${styleId}</styleUrl>
             <Polygon id="${polygonId}">
                 <outerBoundaryIs>
@@ -226,13 +247,19 @@ class JammingDataConverter {
                         <coordinates>${coordinates}</coordinates>
                     </LinearRing>
                 </outerBoundaryIs>
-            </Polygon>
+            </Polygon>`;
+
+        // Add any extended data if it existed
+        if (originalData.originalAttributes?.extendedData) {
+          kmlContent += originalData.originalAttributes.extendedData;
+        }
+
+        kmlContent += `
         </Placemark>`;
 
         processedCount++;
       } catch (error) {
-        console.error(`Error processing H3 index ${data.h3_index}:`, error);
-        // Continue processing other indices
+        console.error(`Error processing H3 index ${h3Index}:`, error);
       }
     });
 
@@ -240,8 +267,7 @@ class JammingDataConverter {
 </Document>
 </kml>`;
 
-    console.log(`Generated KML with ${processedCount} polygonal placemarks`);
-    console.log("Polygon vertex count statistics:", polygonStats);
+    console.log(`Generated KML with ${processedCount} preserved placemarks`);
     return kmlContent;
   }
 
