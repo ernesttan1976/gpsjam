@@ -147,7 +147,18 @@ class JammingDataConverter {
 <Document>
   <name>${title} - ${timestamp}</name>
   <description>GPS Jamming polygons from H3 indices (edited)</description>
-  
+  <Style id="no-jamming">
+    <PolyStyle>
+      <color>1affffff</color>
+      <fill>1</fill>
+      <outline>1</outline>
+    </PolyStyle>
+    <LineStyle>
+      <color>ff000000</color>
+      <width>1</width>
+    </LineStyle>
+  </Style>
+
   <Style id="low-jamming">
     <PolyStyle>
       <color>7f00ff00</color>
@@ -205,20 +216,23 @@ class JammingDataConverter {
           originalData.originalIntensity ||
           this.getIntensityFromColor(hexagonData.color);
 
-        if (intensity === 0 && hexagonData.color === "transparent") {
-          return; // Skip transparent hexagons
-        }
-
         const coordinates = this.h3ToPolygonCoordinates(h3Index);
         if (!coordinates) {
           throw new Error(`Failed to get coordinates for ${h3Index}`);
         }
 
         let styleId;
-        if (intensity <= 5) styleId = "low-jamming";
-        else if (intensity <= 20) styleId = "moderate-jamming";
-        else if (intensity <= 50) styleId = "high-jamming";
-        else styleId = "very-high-jamming";
+        if (hexagonData.color === "transparent") {
+          styleId = "no-jamming";
+        } else if (intensity <= 5) {
+          styleId = "low-jamming";
+        } else if (intensity <= 20) {
+          styleId = "moderate-jamming";
+        } else if (intensity <= 50) {
+          styleId = "high-jamming";
+        } else {
+          styleId = "very-high-jamming";
+        }
 
         // Use original IDs if available, otherwise generate new ones
         const placemarkId =

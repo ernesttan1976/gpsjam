@@ -261,8 +261,8 @@ class GPSJammingMapEditor {
       // Get hexagon boundary
       const boundary = this.h3.cellToBoundary(h3Index);
 
-      // Convert to Leaflet LatLng format
-      const latLngs = boundary.map(([lat, lng]) => [lat, lng]);
+      // Convert to Leaflet LatLng format with longitude normalization
+      const latLngs = this.normalizeBoundaryLongitudes(boundary);
 
       // Create polygon
       const polygon = L.polygon(latLngs, {
@@ -291,6 +291,26 @@ class GPSJammingMapEditor {
     }
   }
 
+  // Helper method to normalize longitude coordinates
+  normalizeBoundaryLongitudes(boundary) {
+    const latLngs = boundary.map(([lat, lng]) => [lat, lng]);
+
+    if (latLngs.length < 2) return latLngs;
+
+    // Check if we're crossing the 180° meridian
+    const longitudes = latLngs.map((coord) => coord[1]);
+    const minLng = Math.min(...longitudes);
+    const maxLng = Math.max(...longitudes);
+
+    // If the difference is greater than 180°, we're likely crossing the dateline
+    if (maxLng - minLng > 180) {
+      // Normalize all negative longitudes to positive (0-360 range)
+      return latLngs.map(([lat, lng]) => [lat, lng < 0 ? lng + 360 : lng]);
+    }
+
+    return latLngs;
+  }
+
   updateHexagon(h3Index, newColor) {
     const hexagon = this.hexagons.get(h3Index);
     if (!hexagon) return;
@@ -301,11 +321,8 @@ class GPSJammingMapEditor {
     // Update stored color
     hexagon.color = newColor;
 
-    // If transparent, remove it
-    if (newColor === "transparent") {
-      this.map.removeLayer(hexagon.polygon);
-      this.hexagons.delete(h3Index);
-    }
+    // Note: Don't remove transparent hexagons - keep them in data
+    // They will be saved with the transparent style when exporting
   }
 
   async loadKMZFile(file) {
@@ -428,7 +445,7 @@ class GPSJammingMapEditor {
             styleUrl.includes("no-jamming") ||
             styleUrl.includes("transparent")
           ) {
-            color = "transparent";
+            color = "green";
           } else if (styleUrl.includes("low") || styleUrl.includes("yellow")) {
             color = "yellow";
           } else if (
@@ -441,56 +458,49 @@ class GPSJammingMapEditor {
           }
           console.log("Assigned color:", color);
 
-          // Create hexagon if not transparent
-          if (color !== "transparent") {
-            // Extract additional data from KML
-            const name = placemark.querySelector("name")?.textContent || "";
-            const coordinates =
-              placemark.querySelector("coordinates")?.textContent || "";
-            const styleUrl =
-              placemark.querySelector("styleUrl")?.textContent || "";
+          // Extract additional data from KML for ALL hexagons (including transparent)
+          const name = placemark.querySelector("name")?.textContent || "";
+          const coordinates =
+            placemark.querySelector("coordinates")?.textContent || "";
 
-            // Parse jamming intensity from description if available
-            const intensityMatch = description.match(
-              /Jamming Intensity:\s*(\d+)/i
-            );
-            const intensity = intensityMatch
-              ? parseInt(intensityMatch[1])
-              : this.getIntensityFromColor(color);
+          // Parse jamming intensity from description if available
+          const intensityMatch = description.match(
+            /Jamming Intensity:\s*(\d+)/i
+          );
+          const intensity = intensityMatch
+            ? parseInt(intensityMatch[1])
+            : this.getIntensityFromColor(color);
 
-            // Parse vertex count if available
-            const vertexMatch = description.match(/Vertices:\s*(\d+)/i);
-            const vertexCount = vertexMatch ? parseInt(vertexMatch[1]) : null;
+          // Parse vertex count if available
+          const vertexMatch = description.match(/Vertices:\s*(\d+)/i);
+          const vertexCount = vertexMatch ? parseInt(vertexMatch[1]) : null;
 
-            this.createHexagon(h3Index, color, {
-              originalName: name,
-              originalDescription: description,
-              originalCoordinates: coordinates,
-              originalStyleUrl: styleUrl,
-              originalIntensity: intensity,
-              originalVertexCount: vertexCount,
-              // Store any additional placemark attributes
-              originalAttributes: this.extractPlacemarkAttributes(placemark),
+          // Create hexagon for ALL colors (including transparent)
+          this.createHexagon(h3Index, color, {
+            originalName: name,
+            originalDescription: description,
+            originalCoordinates: coordinates,
+            originalStyleUrl: styleUrl,
+            originalIntensity: intensity,
+            originalVertexCount: vertexCount,
+            // Store any additional placemark attributes
+            originalAttributes: this.extractPlacemarkAttributes(placemark),
+          });
+
+          hexagonCount++;
+
+          // Calculate bounds to fit view for ALL hexagons
+          try {
+            const boundary = this.h3.cellToBoundary(h3Index);
+            boundary.forEach(([lat, lng]) => {
+              if (!bounds) {
+                bounds = L.latLngBounds([lat, lng], [lat, lng]);
+              } else {
+                bounds.extend([lat, lng]);
+              }
             });
-          }
-
-          if (h3Index && color !== "transparent") {
-            this.createHexagon(h3Index, color);
-            hexagonCount++;
-
-            // Calculate bounds to fit view
-            try {
-              const boundary = this.h3.cellToBoundary(h3Index);
-              boundary.forEach(([lat, lng]) => {
-                if (!bounds) {
-                  bounds = L.latLngBounds([lat, lng], [lat, lng]);
-                } else {
-                  bounds.extend([lat, lng]);
-                }
-              });
-            } catch (error) {
-              console.error("Error calculating bounds for", h3Index, error);
-            }
+          } catch (error) {
+            console.error("Error calculating bounds for", h3Index, error);
           }
         } catch (error) {
           console.error("Error parsing placemark:", error);
